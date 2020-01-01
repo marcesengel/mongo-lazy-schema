@@ -1,0 +1,55 @@
+{
+  "name": "mongo-lazy-schema",
+  "version": "1.0.0",
+  "description": "Lazy schema enforcement for MongoDB",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "test": "jest --coverage",
+    "prebuild": "rimraf dist",
+    "build": "tsc -p tsconfig.json",
+    "prepare": "npm run test && npm run build",
+    "preversion": "npm run prepare"
+  },
+  "engines": {
+    "node": ">= 12.4.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DragonRaider5/mongo-lazy-schema.git"
+  },
+  "keywords": [
+    "mongo",
+    "schema",
+    "lazy",
+    "mongodb",
+    "async",
+    "update",
+    "version",
+    "migration"
+  ],
+  "author": "Marces Engel <mengel@facemurphy.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/DragonRaider5/mongo-lazy-schema/issues"
+  },
+  "homepage": "https://github.com/DragonRaider5/mongo-lazy-schema#readme",
+  "devDependencies": {
+    "@types/jest": "^24.0.25",
+    "@types/mongodb": "^3.3.14",
+    "@types/node": "^13.1.2",
+    "jest": "^24.9.0",
+    "jest-environment-mongodb": "^1.0.2",
+    "mongodb": "^3.4.1",
+    "rimraf": "^3.0.0",
+    "ts-jest": "^24.2.0",
+    "typescript": "^3.7.4"
+  },
+  "peerDependencies": {
+    "mongodb": "^3.4.1",
+    "@types/mongodb": "^3.3.14"
+  },
+  "dependencies": {
+    "mongodb-memory-server": "^6.2.1"
+  }
+}
