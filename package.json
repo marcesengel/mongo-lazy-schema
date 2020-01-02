@@ -8,8 +8,9 @@
     "test": "jest --coverage",
     "prebuild": "rimraf dist",
     "build": "tsc -p tsconfig.json",
-    "prepare": "npm run test && npm run build",
-    "preversion": "npm run prepare"
+    "prepublishOnly": "npm run test",
+    "prepare": "npm run build",
+    "preversion": "npm run prepare && npm run test"
   },
   "engines": {
     "node": ">= 12.4.0"
