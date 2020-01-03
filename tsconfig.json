@@ -4,6 +4,8 @@
     "compilerOptions": {
         "outDir": "dist",
         "declaration": true,
-        "esModuleInterop": true
+        "moduleResolution": "Node",
+        "target": "ES2019",
+        "sourceMap": true
     }
 }

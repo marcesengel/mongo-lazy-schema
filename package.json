@@ -4,10 +4,12 @@
   "description": "Lazy schema enforcement for MongoDB",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "type": "module",
   "scripts": {
     "test": "jest --coverage",
     "prebuild": "rimraf dist",
     "build": "tsc -p tsconfig.json",
+    "postbuild": "rename js mjs --path dist",
     "prepublishOnly": "npm run test",
     "prepare": "npm run build",
     "preversion": "npm run prepare && npm run test"
@@ -42,10 +44,11 @@
     "jest": "^24.9.0",
     "jest-environment-mongodb": "^1.0.2",
     "mongodb": "^3.4.1",
+    "mongodb-memory-server": "^6.2.1",
+    "recursive-rename": "github:DragonRaider5/recursive-rename",
     "rimraf": "^3.0.0",
     "ts-jest": "^24.2.0",
-    "typescript": "^3.7.4",
-    "mongodb-memory-server": "^6.2.1"
+    "typescript": "^3.7.4"
   },
   "peerDependencies": {
     "mongodb": "^3.4.1",
