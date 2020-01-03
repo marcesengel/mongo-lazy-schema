@@ -1,7 +1,7 @@
-import { Collection } from 'mongodb'
+import { Collection, ObjectId } from 'mongodb'
 
 export interface VersionedDocument {
-  _id: string
+  _id: ObjectId
   _v: number
 }
 
@@ -41,7 +41,7 @@ const createSchema = <T extends VersionedDocument, H extends VersionedDocument>(
       const document = input[i]
       const version = document._v
 
-      documentIndexById[document._id] = i
+      documentIndexById[document._id.toHexString()] = i
 
       if (!documentsByVersion[version]) {
         documentsByVersion[version] = []
@@ -49,8 +49,8 @@ const createSchema = <T extends VersionedDocument, H extends VersionedDocument>(
       documentsByVersion[version].push(document)
     }
 
-    const getIndex = (document: { _id: string }) => document
-      ? documentIndexById[document._id]
+    const getIndex = (document: T | H) => document
+      ? documentIndexById[document._id.toHexString()]
       : -1
 
     // @ts-ignore

@@ -1,4 +1,4 @@
-import { MongoClient, Db, Collection } from 'mongodb'
+import { MongoClient, Db, Collection, ObjectId } from 'mongodb'
 import createSchema, { SchemaRevision, VersionedDocument } from './index'
 
 declare global {
@@ -34,11 +34,11 @@ describe('createSchema', () => {
     const revisions: SchemaRevision<VersionedDocument>[] = [ { update: (entity) => entity } ]
     const Schema = createSchema(revisions)
 
-    await expect(Schema({ _id: '1', _v: 0 })).rejects.toThrow()
+    await expect(Schema({ _id: new ObjectId(), _v: 0 })).rejects.toThrow()
   })
 
   it('chains the update functions by passing them the previous return and the db instance', async () => {
-    const document: VersionedDocument = { _id: '1', _v: 0 }
+    const document: VersionedDocument = { _id: new ObjectId(), _v: 0 }
 
     const revisions = []
     for (let i = 0; i < 2; i++) {
@@ -67,7 +67,7 @@ describe('createSchema', () => {
 
   it('calls the proper update functions according to the current document version', async () => {
     const document: VersionedDocument = {
-      _id: '1',
+      _id: new ObjectId(),
       _v: 1
     }
 
@@ -99,13 +99,13 @@ describe('createSchema', () => {
     }
 
     const oldDocument: D_1 = {
-      _id: '1',
+      _id: new ObjectId(),
       _v: 0,
       oldProperty: true
     }
 
     const newDocument: D = {
-      _id: '1',
+      _id: new ObjectId(),
       _v: 1,
       newProperty: true
     }
@@ -130,29 +130,29 @@ describe('createSchema', () => {
     const Schema = createSchema(revisions)
 
     const documents: VersionedDocument[] = [
-      { _id: '1', _v: 0 },
-      { _id: '2', _v: 2 },
-      { _id: '3', _v: 1 },
-      { _id: '4', _v: 1 }
+      { _id: new ObjectId(), _v: 0 },
+      { _id: new ObjectId(), _v: 2 },
+      { _id: new ObjectId(), _v: 1 },
+      { _id: new ObjectId(), _v: 1 }
     ]
 
     await expect(Schema(documents)).resolves.toEqual([
       {
-        _id: '1',
+        _id: documents[0]._id,
         _v: 2,
         updates: [ 1, 2 ]
       },
       {
-        _id: '2',
+        _id: documents[1]._id,
         _v: 2
       },
       {
-        _id: '3',
+        _id: documents[2]._id,
         _v: 2,
         updates: [ 2 ]
       },
       {
-        _id: '4',
+        _id: documents[3]._id,
         _v: 2,
         updates: [ 2 ]
       }
