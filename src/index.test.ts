@@ -30,25 +30,28 @@ describe('createSchema', () => {
     await client.close()
   })
 
-  it('adds the version to the object returned by the last update function', async () => {
-    const revisions: SchemaRevision[] = [ { update: () => ({}) } ]
+  it('throws an error when a bad version is returned by an updater', async () => {
+    const revisions: SchemaRevision<VersionedDocument>[] = [ { update: (entity) => entity } ]
     const Schema = createSchema(revisions)
 
-    await expect(Schema({ _id: '1', _v: 0 })).resolves.toHaveProperty('_v', revisions.length)
+    await expect(Schema({ _id: '1', _v: 0 })).rejects.toThrow()
   })
 
   it('chains the update functions by passing them the previous return and the db instance', async () => {
+    const document: VersionedDocument = { _id: '1', _v: 0 }
+
     const revisions = []
     for (let i = 0; i < 2; i++) {
       revisions.push({
         update: jest.fn().mockResolvedValue({
+          ...document,
+          _v: i + 1,
           ['property' + (i + 1)]: true
         })
       })
     }
 
     const Schema = createSchema(revisions)
-    const document: VersionedDocument = { _id: '1', _v: 0 }
     await Schema(document)
     
     for (const i in revisions) {
@@ -63,21 +66,21 @@ describe('createSchema', () => {
   })
 
   it('calls the proper update functions according to the current document version', async () => {
-    const revisions = [
-      {
-        update: jest.fn()
-      },
-      {
-        update: jest.fn().mockReturnValue({})
-      }
-    ]
-  
-    const Schema = createSchema(revisions)
-  
     const document: VersionedDocument = {
       _id: '1',
       _v: 1
     }
+
+    const revisions = [
+      {
+        update: jest.fn().mockReturnValue({ ...document, _v: 1 })
+      },
+      {
+        update: jest.fn().mockReturnValue({ ...document, _v: 2 })
+      }
+    ]
+  
+    const Schema = createSchema(revisions)
   
     await Schema(document)
   
@@ -85,27 +88,36 @@ describe('createSchema', () => {
     expect(revisions[1].update).toHaveBeenCalledTimes(1)
   })
   
-  it('returns a superset of what was returned by the last update()', async () => {
-    const oldDocument: VersionedDocument = {
+  it('returns what was returned by the last update()', async () => {
+    interface D_1 extends VersionedDocument {
+      oldProperty: boolean
+    }
+
+    interface D extends VersionedDocument {
+      _v: 1
+      newProperty: true
+    }
+
+    const oldDocument: D_1 = {
       _id: '1',
       _v: 0,
       oldProperty: true
     }
 
-    const newDocument = {
+    const newDocument: D = {
+      _id: '1',
+      _v: 1,
       newProperty: true
     }
 
-    const Schema = createSchema([ { update: () => Promise.resolve(newDocument) } ])
+    const Schema = createSchema<D, D_1>([ { update: (document: D_1): D => newDocument } ])
 
-    await expect(Schema(oldDocument)).resolves.toEqual(
-      expect.objectContaining(newDocument)
-    )
+    await expect(Schema(oldDocument)).resolves.toEqual(newDocument)
   })
 
   it('makes proper use of updateMany', async () => {
     const makeBatchUpdater = (propIndex: number) =>
-      (documents) => documents.map((document) => ({ ...document, updates: (document.updates || []).concat(propIndex) }))
+      (documents) => documents.map(({ _v, ...document }) => ({ ...document, _v: _v + 1, updates: (document.updates || []).concat(propIndex) }))
 
     const revisions = [
       {
@@ -120,7 +132,8 @@ describe('createSchema', () => {
     const documents: VersionedDocument[] = [
       { _id: '1', _v: 0 },
       { _id: '2', _v: 2 },
-      { _id: '3', _v: 1 }
+      { _id: '3', _v: 1 },
+      { _id: '4', _v: 1 }
     ]
 
     await expect(Schema(documents)).resolves.toEqual([
@@ -137,6 +150,11 @@ describe('createSchema', () => {
         _id: '3',
         _v: 2,
         updates: [ 2 ]
+      },
+      {
+        _id: '4',
+        _v: 2,
+        updates: [ 2 ]
       }
     ])
 
@@ -145,12 +163,28 @@ describe('createSchema', () => {
 
     expect(revisions[1].updateMany).toHaveBeenCalledTimes(1)
     expect(revisions[1].updateMany).toHaveBeenCalledWith(
-      expect.arrayContaining([ documents[2], ...revisions[0].updateMany.mock.results[0].value ])
+      expect.arrayContaining([ documents[2], documents[3], ...revisions[0].updateMany.mock.results[0].value ])
     )
   })
 
   it('can persist updates to mulitple documents', async () => {
     const genRand = (): Number => Math.round(Math.random() * 100)
+
+    interface D_0 extends VersionedDocument {
+      _v: 0
+      a: number
+      b: number
+    }
+
+    interface D_1 extends VersionedDocument {
+      _v: 1
+      prod: number
+    }
+
+    interface D extends VersionedDocument {
+      _v: 2
+      negProd: number
+    }
 
     await collection.insertMany([
       {
@@ -164,10 +198,10 @@ describe('createSchema', () => {
       }
     ])
 
-    const revisions: SchemaRevision[] = [ {
-      updateMany: (documents) => documents.map(({ a, b, ...document }) => ({ prod: a * b, _v: 2, ...document }))
+    const revisions: SchemaRevision<D_0 | D_1 | D>[] = [ {
+      updateMany: (documents: D_0[]) => documents.map(({ a, b, ...document }): D_1 => ({ ...document, prod: a * b, _v: 1 }))
     }, {
-      updateMany: (documents) => documents.map(({ prod, ...document }) => ({ negProd: -prod, ...document }))
+      updateMany: (documents: D_1[]) => documents.map(({ prod, ...document }): D => ({ ...document, negProd: -prod, _v: 2 }))
     } ]
     const Schema = createSchema(revisions)
 
