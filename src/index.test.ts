@@ -32,9 +32,9 @@ describe('createSchema', () => {
 
   it('adds the version to the object returned by the last update function', async () => {
     const revisions: SchemaRevision[] = [ { update: () => ({}) } ]
-    const Schema = createSchema(revisions, collection)
+    const Schema = createSchema(revisions)
 
-    await expect(Schema({ _id: '1', _v: 0 }, false)).resolves.toHaveProperty('_v', revisions.length)
+    await expect(Schema({ _id: '1', _v: 0 })).resolves.toHaveProperty('_v', revisions.length)
   })
 
   it('chains the update functions by passing them the previous return and the db instance', async () => {
@@ -47,9 +47,9 @@ describe('createSchema', () => {
       })
     }
 
-    const Schema = createSchema(revisions, collection)
+    const Schema = createSchema(revisions)
     const document: VersionedDocument = { _id: '1', _v: 0 }
-    await Schema(document, false)
+    await Schema(document)
     
     for (const i in revisions) {
       const previousReturn = +i === 0
@@ -72,14 +72,14 @@ describe('createSchema', () => {
       }
     ]
   
-    const Schema = createSchema(revisions, collection)
+    const Schema = createSchema(revisions)
   
     const document: VersionedDocument = {
       _id: '1',
       _v: 1
     }
   
-    await Schema(document, false)
+    await Schema(document)
   
     expect(revisions[0].update).not.toHaveBeenCalled()
     expect(revisions[1].update).toHaveBeenCalledTimes(1)
@@ -96,9 +96,9 @@ describe('createSchema', () => {
       newProperty: true
     }
 
-    const Schema = createSchema([ { update: () => Promise.resolve(newDocument) } ], collection)
+    const Schema = createSchema([ { update: () => Promise.resolve(newDocument) } ])
 
-    await expect(Schema(oldDocument, false)).resolves.toEqual(
+    await expect(Schema(oldDocument)).resolves.toEqual(
       expect.objectContaining(newDocument)
     )
   })
@@ -115,7 +115,7 @@ describe('createSchema', () => {
         updateMany: jest.fn(makeBatchUpdater(2))
       }
     ]
-    const Schema = createSchema(revisions, collection)
+    const Schema = createSchema(revisions)
 
     const documents: VersionedDocument[] = [
       { _id: '1', _v: 0 },
@@ -123,7 +123,7 @@ describe('createSchema', () => {
       { _id: '3', _v: 1 }
     ]
 
-    await expect(Schema(documents, false)).resolves.toEqual([
+    await expect(Schema(documents)).resolves.toEqual([
       {
         _id: '1',
         _v: 2,
@@ -169,9 +169,9 @@ describe('createSchema', () => {
     }, {
       updateMany: (documents) => documents.map(({ prod, ...document }) => ({ negProd: -prod, ...document }))
     } ]
-    const Schema = createSchema(revisions, collection)
+    const Schema = createSchema(revisions)
 
-    const documents = await Schema(await collection.find({}).toArray())
+    const documents = await Schema(await collection.find({}).toArray(), collection)
 
     await expect(collection.find({}).toArray()).resolves.toEqual(documents)
   })

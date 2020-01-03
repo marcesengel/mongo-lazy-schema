@@ -20,16 +20,19 @@ interface DocumentBatchUpdater {
 export type SchemaRevision = SingleDocumentUpdater | DocumentBatchUpdater
 
 type SchemaEnforcer = {
-  (instance: VersionedDocument, persist?: boolean): Promise<VersionedDocument>
-  (instances: VersionedDocument[], persist?: boolean): Promise<VersionedDocument[]>
+  (instance: VersionedDocument, collection?: Collection): Promise<VersionedDocument>
+  (instances: VersionedDocument[], collection?: Collection): Promise<VersionedDocument[]>
+  (instance: Promise<VersionedDocument>, collection?: Collection): Promise<VersionedDocument>
+  (instances: Promise<VersionedDocument[]>, collection?: Collection): Promise<VersionedDocument[]>
 }
 
-type PlainOrArray<T> = T | T[]
+type SchemaEnforcerIn = VersionedDocument | VersionedDocument[] | Promise<VersionedDocument | VersionedDocument[]>
 
-const createSchema = (revisions: SchemaRevision[], collection: Collection) : SchemaEnforcer => {
+const createSchema = (revisions: SchemaRevision[]) : SchemaEnforcer => {
   const schemaVersion = revisions.length
 
-  const updateDocuments: SchemaEnforcer = async (input: PlainOrArray<VersionedDocument>, persist: boolean = true): Promise<any> => {
+  const updateDocuments: SchemaEnforcer = async (input: SchemaEnforcerIn, collection?: Collection): Promise<any> => {
+    input = await input
     let singleDocument = false
     if (!Array.isArray(input)) {
       singleDocument = true
@@ -72,7 +75,7 @@ const createSchema = (revisions: SchemaRevision[], collection: Collection) : Sch
           }
         })
 
-        if (persist) {
+        if (collection) {
           await collection.bulkWrite(documents.map((document) => ({
             replaceOne: {
               filter: { _id: document._id },
