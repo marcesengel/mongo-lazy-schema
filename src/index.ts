@@ -29,6 +29,11 @@ const createSchema = <T extends VersionedDocument, H extends VersionedDocument>(
 
   const updateDocuments: SchemaEnforcer<T, H> = async (input: Input<T | H>, collection?: Collection): Promise<any> => {
     input = await input
+
+    if (!input) {
+      return input
+    }
+
     let singleDocument = false
     if (!Array.isArray(input)) {
       singleDocument = true

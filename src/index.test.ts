@@ -209,4 +209,13 @@ describe('createSchema', () => {
 
     await expect(collection.find({}).toArray()).resolves.toEqual(documents)
   })
+
+  it('returns the value, if a falsy value is passed', async () => {
+    const falsyValues = [ undefined, null, false ]
+    const Schema = createSchema([])
+    
+    for (const value of falsyValues) {
+      await expect(Schema(<any>value)).resolves.toEqual(value)
+    }
+  })
 })
