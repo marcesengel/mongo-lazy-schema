@@ -2,17 +2,16 @@
   "name": "mongo-lazy-schema",
   "version": "2.2.0",
   "description": "Lazy schema enforcement for MongoDB",
-  "main": "dist/index.mjs",
+  "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "type": "module",
+  "esnext": "dist/index.mjs",
   "scripts": {
     "test": "jest --coverage",
     "prebuild": "rimraf dist",
-    "build": "tsc -p tsconfig.json",
-    "postbuild": "rename js mjs --path dist",
+    "build": "tsc --sourceMap && rename js mjs --path dist && tsc --module CommonJS --inlineSourceMap --inlineSources",
     "prepublishOnly": "npm run test",
     "prepare": "npm run build",
-    "preversion": "npm run prepare && npm run test"
+    "preversion": "npm run test"
   },
   "engines": {
     "node": ">= 12.4.0"
