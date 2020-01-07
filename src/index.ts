@@ -112,10 +112,30 @@ const createSchema = <T extends VersionedDocument, H extends VersionedDocument>(
 
 export default createSchema
 
+interface Document {
+  _id: ObjectId
+  [others: string]: any
+}
+
 export const persistById = (collection: Collection) =>
-  (documents: { _id: ObjectId, [others: string]: any }[]): Promise<BulkWriteOpResultObject> => collection.bulkWrite(documents.map((document) => ({
+  (documents: Document[]): Promise<BulkWriteOpResultObject> => collection.bulkWrite(documents.map((document) => ({
     replaceOne: {
       filter: { _id: document._id },
       replacement: document
     }
   })))
+
+export const persistEmbeddedDocument = (collection: Collection, baseDocuments: Document | Document[], fieldName: string) => {
+  if (!Array.isArray(baseDocuments)) {
+    baseDocuments = [ baseDocuments ]
+  }
+
+  return (documents: any): Promise<BulkWriteOpResultObject> => collection.bulkWrite(documents.map((document: any, index: number) => ({
+    updateOne: {
+      filter: { _id: baseDocuments[index]._id },
+      update: {
+        $set: { [fieldName]: document }
+      }
+    }
+  })))
+}

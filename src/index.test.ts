@@ -1,5 +1,5 @@
 import { MongoClient, Db, Collection, ObjectId } from 'mongodb'
-import createSchema, { SchemaRevision, VersionedDocument, persistById } from './index'
+import createSchema, { SchemaRevision, VersionedDocument, persistById, persistEmbeddedDocument } from './index'
 
 declare global {
   namespace NodeJS {
@@ -161,7 +161,7 @@ describe('createSchema', () => {
   })
 
   it('can persist updates to multiple documents', async () => {
-    const genRand = (): Number => Math.round(Math.random() * 100)
+    const genRand = (): Number => Math.round(Math.random() * 100) + 1
 
     interface D_0 extends VersionedDocument {
       _v: 0
@@ -215,5 +215,73 @@ describe('createSchema', () => {
     }
 
     await expect(Schema(<any[]>falsyValues)).resolves.toEqual(falsyValues)
+  })
+
+  describe('persistEmbeddedDocument', () => {
+    interface E_0 extends VersionedDocument {
+      _v: 0
+      value: number
+    }
+
+    interface E extends VersionedDocument {
+      _v: 1
+      dValue: number
+    }
+
+    interface D extends VersionedDocument {
+      readonly _v: 0
+      _id: ObjectId
+      embedded: E | E_0 // testing purposes, normally only E
+    }
+
+    it('works with a single base document', async () => {
+      const document: D = {
+        _v: 0,
+        _id: new ObjectId(),
+        embedded: {
+          _v: 0,
+          value: Math.random() * 10 + 1
+        }
+      }
+
+      const update = (document: E_0): E => ({ _v: 1, dValue: document.value * 2 })
+      const EmbeddedSchema = createSchema<E, E_0>([ { update } ])
+
+      const { insertedId } = await collection.insertOne(document)
+      document._id = insertedId
+
+      document.embedded = await EmbeddedSchema(document.embedded, persistEmbeddedDocument(collection, document, 'embedded'))
+
+      await expect(collection.findOne({ _id: insertedId })).resolves.toEqual(document)
+    })
+
+    it('works with multiple base documents', async () => {
+      let documents: D[] = [ {
+        _v: 0,
+        _id: new ObjectId(),
+        embedded: {
+          _v: 0,
+          value: Math.random() * 10 + 1
+        }
+      }, {
+        _v: 0,
+        _id: new ObjectId(),
+        embedded: {
+          _v: 0,
+          value: Math.random() * 10 + 1
+        }
+      } ]
+
+      const update = (document: E_0): E => ({ _v: 1, dValue: document.value * 2 })
+      const EmbeddedSchema = createSchema<E, E_0>([ { update } ])
+
+      const { insertedIds } = await collection.insertMany(documents)
+      documents = documents.map((document: D, index: number) => ({ ...document, _id: insertedIds[index] }))
+
+      const embeddedDocs = await EmbeddedSchema(documents.map(({ embedded }) => embedded), persistEmbeddedDocument(collection, documents, 'embedded'))
+      documents = documents.map((document: D, index: number) => ({ ...document, embedded: embeddedDocs[index] }))
+
+      await expect(collection.find({ _id: { $in: documents.map(({ _id }) => _id ) } }).toArray()).resolves.toEqual(documents)
+    })
   })
 })
