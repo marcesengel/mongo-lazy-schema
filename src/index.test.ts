@@ -1,5 +1,5 @@
 import { MongoClient, Db, Collection, ObjectId } from 'mongodb'
-import createSchema, { SchemaRevision, VersionedDocument } from './index'
+import createSchema, { SchemaRevision, VersionedDocument, persistById } from './index'
 
 declare global {
   namespace NodeJS {
@@ -34,11 +34,11 @@ describe('createSchema', () => {
     const revisions: SchemaRevision<VersionedDocument>[] = [ { update: (entity) => entity } ]
     const Schema = createSchema(revisions)
 
-    await expect(Schema({ _id: new ObjectId(), _v: 0 })).rejects.toThrow()
+    await expect(Schema({  _v: 0 })).rejects.toThrow()
   })
 
   it('chains the update functions by passing them the previous return and the db instance', async () => {
-    const document: VersionedDocument = { _id: new ObjectId(), _v: 0 }
+    const document: VersionedDocument = { _v: 0 }
 
     const revisions = []
     for (let i = 0; i < 2; i++) {
@@ -67,7 +67,6 @@ describe('createSchema', () => {
 
   it('calls the proper update functions according to the current document version', async () => {
     const document: VersionedDocument = {
-      _id: new ObjectId(),
       _v: 1
     }
 
@@ -99,13 +98,11 @@ describe('createSchema', () => {
     }
 
     const oldDocument: D_1 = {
-      _id: new ObjectId(),
       _v: 0,
       oldProperty: true
     }
 
     const newDocument: D = {
-      _id: new ObjectId(),
       _v: 1,
       newProperty: true
     }
@@ -130,29 +127,25 @@ describe('createSchema', () => {
     const Schema = createSchema(revisions)
 
     const documents: VersionedDocument[] = [
-      { _id: new ObjectId(), _v: 0 },
-      { _id: new ObjectId(), _v: 2 },
-      { _id: new ObjectId(), _v: 1 },
-      { _id: new ObjectId(), _v: 1 }
+      { _v: 0 },
+      { _v: 2 },
+      { _v: 1 },
+      { _v: 1 }
     ]
 
     await expect(Schema(documents)).resolves.toEqual([
       {
-        _id: documents[0]._id,
         _v: 2,
         updates: [ 1, 2 ]
       },
       {
-        _id: documents[1]._id,
         _v: 2
       },
       {
-        _id: documents[2]._id,
         _v: 2,
         updates: [ 2 ]
       },
       {
-        _id: documents[3]._id,
         _v: 2,
         updates: [ 2 ]
       }
@@ -167,26 +160,29 @@ describe('createSchema', () => {
     )
   })
 
-  it('can persist updates to mulitple documents', async () => {
+  it('can persist updates to multiple documents', async () => {
     const genRand = (): Number => Math.round(Math.random() * 100)
 
     interface D_0 extends VersionedDocument {
       _v: 0
+      _id: ObjectId
       a: number
       b: number
     }
 
     interface D_1 extends VersionedDocument {
       _v: 1
+      _id: ObjectId
       prod: number
     }
 
     interface D extends VersionedDocument {
       _v: 2
+      _id: ObjectId
       negProd: number
     }
 
-    await collection.insertMany([
+    await collection.insertMany(<(D | D_1 | D_0)[]>[
       {
         _v: 0,
         a: genRand(),
@@ -205,7 +201,7 @@ describe('createSchema', () => {
     } ]
     const Schema = createSchema(revisions)
 
-    const documents = await Schema(await collection.find({}).toArray(), collection)
+    const documents = await Schema(collection.find({}).toArray(), persistById(collection))
 
     await expect(collection.find({}).toArray()).resolves.toEqual(documents)
   })
@@ -217,5 +213,7 @@ describe('createSchema', () => {
     for (const value of falsyValues) {
       await expect(Schema(<any>value)).resolves.toEqual(value)
     }
+
+    await expect(Schema(<any[]>falsyValues)).resolves.toEqual(falsyValues)
   })
 })

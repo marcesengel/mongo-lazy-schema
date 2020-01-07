@@ -1,7 +1,6 @@
-import { Collection, ObjectId } from 'mongodb'
+import { Collection, ObjectId, BulkWriteOpResultObject } from 'mongodb'
 
 export interface VersionedDocument {
-  _id: ObjectId
   _v: number
 }
 
@@ -16,10 +15,10 @@ interface DocumentBatchUpdater<T> {
 export type SchemaRevision<T> = SingleDocumentUpdater<T> | DocumentBatchUpdater<T>
 
 type SchemaEnforcer<T, H> = {
-  (instance: T | H, collection?: Collection): Promise<T>
-  (instances: (T | H)[], collection?: Collection): Promise<T[]>
-  (instance: Promise<T | H>, collection?: Collection): Promise<T>
-  (instances: Promise<(T | H)[]>, collection?: Collection): Promise<T[]>
+  (instance: T | H, persist?: (documents: T[]) => Promise<any>): Promise<T>
+  (instances: (T | H)[], persist?: (documents: T[]) => Promise<any>): Promise<T[]>
+  (instance: Promise<T | H>, persist?: (documents: T[]) => Promise<any>): Promise<T>
+  (instances: Promise<(T | H)[]>, persist?: (documents: T[]) => Promise<any>): Promise<T[]>
 }
 
 type Input<T> = T | T[] | Promise<T | T[]>
@@ -27,12 +26,8 @@ type Input<T> = T | T[] | Promise<T | T[]>
 const createSchema = <T extends VersionedDocument, H extends VersionedDocument>(revisions: SchemaRevision<T | H>[]) : SchemaEnforcer<T, H> => {
   const schemaVersion = revisions.length
 
-  const updateDocuments: SchemaEnforcer<T, H> = async (input: Input<T | H>, collection?: Collection): Promise<any> => {
+  const updateDocuments: SchemaEnforcer<T, H> = async (input: Input<T | H>, persist?: (documents: T[]) => Promise<any>): Promise<any> => {
     input = await input
-
-    if (!input) {
-      return input
-    }
 
     let singleDocument = false
     if (!Array.isArray(input)) {
@@ -40,28 +35,23 @@ const createSchema = <T extends VersionedDocument, H extends VersionedDocument>(
       input = [ input ]
     }
 
-    const documentsByVersion = {}
-    const documentIndexById = {}
+    const documentsByVersion: { [version: string]: { indices: number[], documents: (T | H)[] } } = {}
     for (const i in input) {
       const document = input[i]
-      const version = document._v
-
-      documentIndexById[document._id.toHexString()] = i
+      const version = document ? document._v : schemaVersion
 
       if (!documentsByVersion[version]) {
-        documentsByVersion[version] = []
+        documentsByVersion[version] = { indices: [], documents: [] }
       }
-      documentsByVersion[version].push(document)
+      documentsByVersion[version].indices.push(+i)
+      documentsByVersion[version].documents.push(document)
     }
-
-    const getIndex = (document: T | H) => document
-      ? documentIndexById[document._id.toHexString()]
-      : -1
 
     // @ts-ignore
     for (let version = Math.min(...Object.keys(documentsByVersion)); version < schemaVersion; version++) {
       const revision: SchemaRevision<T | H> = revisions[version]
-      let documents = documentsByVersion[version]
+      let { documents } = documentsByVersion[version]
+      const { indices } = documentsByVersion[version]
 
       if ('updateMany' in revision) {
         documents = await revision.updateMany(documents)
@@ -75,41 +65,40 @@ const createSchema = <T extends VersionedDocument, H extends VersionedDocument>(
         }
       })
 
-      if (version === schemaVersion - 1 && collection) {
-        await collection.bulkWrite(documents.map((document: T) => ({
-          replaceOne: {
-            filter: { _id: document._id },
-            replacement: document
-          }
-        })))
+      if (version === schemaVersion - 1 && persist) {
+        await persist(<T[]>documents)
       }
 
-      const nextVersionDocuments = documentsByVersion[version + 1] || []
-      const result = documentsByVersion[version + 1] = []
-      const documentCount = documents.length + nextVersionDocuments.length
+      const nextVersionDocuments = documentsByVersion[version + 1] || { indices: [], documents: [] }
+      const result = documentsByVersion[version + 1] = { indices: [], documents: [] }
+      const documentCount = documents.length + nextVersionDocuments.documents.length
 
-      let nVIndex = getIndex(nextVersionDocuments[0]),
-        cDIndex = getIndex(documents[0])
+      let nVIndex: number = nextVersionDocuments.indices[0],
+        cDIndex: number = indices[0]
       for (let i = 0; i < documentCount; i++) {
-        if (cDIndex === -1) {
-          result.push(...nextVersionDocuments)
+        if (typeof cDIndex === 'undefined') {
+          result.documents.push(...nextVersionDocuments.documents)
+          result.indices.push(...nextVersionDocuments.indices)
           break
-        } else if (nVIndex === -1) {
-          result.push(...documents)
+        } else if (typeof nVIndex === 'undefined') {
+          result.documents.push(...documents)
+          result.indices.push(...indices)
           break
         }
 
         if (nVIndex < cDIndex) {
-          result.push(nextVersionDocuments.shift())
-          nVIndex = getIndex(nextVersionDocuments[0])
+          result.documents.push(nextVersionDocuments.documents.shift())
+          result.indices.push(nextVersionDocuments.indices.shift())
+          nVIndex = nextVersionDocuments.indices[0]
         } else {
-          result.push(documents.shift())
-          cDIndex = getIndex(documents[0])
+          result.documents.push(documents.shift())
+          result.indices.push(indices.shift())
+          cDIndex = indices[0]
         }
       }
     }
 
-    const result = documentsByVersion[schemaVersion]
+    const result: T[] = <T[]>documentsByVersion[schemaVersion].documents
 
     if (singleDocument) {
       return result[0]
@@ -122,3 +111,11 @@ const createSchema = <T extends VersionedDocument, H extends VersionedDocument>(
 }
 
 export default createSchema
+
+export const persistById = (collection: Collection) =>
+  (documents: { _id: ObjectId, [others: string]: any }[]): Promise<BulkWriteOpResultObject> => collection.bulkWrite(documents.map((document) => ({
+    replaceOne: {
+      filter: { _id: document._id },
+      replacement: document
+    }
+  })))
