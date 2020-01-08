@@ -1,5 +1,5 @@
 import { MongoClient, Db, Collection, ObjectId } from 'mongodb'
-import createSchema, { SchemaRevision, VersionedDocument, persistById, persistEmbeddedDocument } from './index'
+import createSchema, { SchemaRevision, VersionedDocument, VersionedBaseDocument, Projection } from './index'
 
 declare global {
   namespace NodeJS {
@@ -31,14 +31,14 @@ describe('createSchema', () => {
   })
 
   it('throws an error when a bad version is returned by an updater', async () => {
-    const revisions: SchemaRevision<VersionedDocument>[] = [ { update: (entity) => entity } ]
+    const revisions: SchemaRevision<VersionedBaseDocument>[] = [ { update: (entity) => entity } ]
     const Schema = createSchema(revisions)
 
-    await expect(Schema({  _v: 0 })).rejects.toThrow()
+    await expect(Schema({ _v: 0, _id: new ObjectId() })).rejects.toThrow()
   })
 
   it('chains the update functions by passing them the previous return and the db instance', async () => {
-    const document: VersionedDocument = { _v: 0 }
+    const document: VersionedBaseDocument = { _v: 0, _id: new ObjectId() }
 
     const revisions = []
     for (let i = 0; i < 2; i++) {
@@ -66,8 +66,9 @@ describe('createSchema', () => {
   })
 
   it('calls the proper update functions according to the current document version', async () => {
-    const document: VersionedDocument = {
-      _v: 1
+    const document: VersionedBaseDocument = {
+      _v: 1,
+      _id: new ObjectId()
     }
 
     const revisions = [
@@ -88,22 +89,24 @@ describe('createSchema', () => {
   })
   
   it('returns what was returned by the last update()', async () => {
-    interface D_1 extends VersionedDocument {
+    interface D_1 extends VersionedBaseDocument {
       oldProperty: boolean
     }
 
-    interface D extends VersionedDocument {
+    interface D extends VersionedBaseDocument {
       _v: 1
       newProperty: true
     }
 
     const oldDocument: D_1 = {
       _v: 0,
+      _id: new ObjectId(),
       oldProperty: true
     }
 
     const newDocument: D = {
       _v: 1,
+      _id: new ObjectId(),
       newProperty: true
     }
 
@@ -126,27 +129,31 @@ describe('createSchema', () => {
     ]
     const Schema = createSchema(revisions)
 
-    const documents: VersionedDocument[] = [
-      { _v: 0 },
-      { _v: 2 },
-      { _v: 1 },
-      { _v: 1 }
+    const documents: VersionedBaseDocument[] = [
+      { _v: 0, _id: new ObjectId() },
+      { _v: 2, _id: new ObjectId() },
+      { _v: 1, _id: new ObjectId() },
+      { _v: 1, _id: new ObjectId() }
     ]
 
     await expect(Schema(documents)).resolves.toEqual([
       {
         _v: 2,
+        _id: documents[0]._id,
         updates: [ 1, 2 ]
       },
       {
-        _v: 2
+        _v: 2,
+        _id: documents[1]._id,
       },
       {
         _v: 2,
+        _id: documents[2]._id,
         updates: [ 2 ]
       },
       {
         _v: 2,
+        _id: documents[3]._id,
         updates: [ 2 ]
       }
     ])
@@ -163,20 +170,20 @@ describe('createSchema', () => {
   it('can persist updates to multiple documents', async () => {
     const genRand = (): Number => Math.round(Math.random() * 100) + 1
 
-    interface D_0 extends VersionedDocument {
+    interface D_0 extends VersionedBaseDocument {
       _v: 0
       _id: ObjectId
       a: number
       b: number
     }
 
-    interface D_1 extends VersionedDocument {
+    interface D_1 extends VersionedBaseDocument {
       _v: 1
       _id: ObjectId
       prod: number
     }
 
-    interface D extends VersionedDocument {
+    interface D extends VersionedBaseDocument {
       _v: 2
       _id: ObjectId
       negProd: number
@@ -185,11 +192,13 @@ describe('createSchema', () => {
     await collection.insertMany(<(D | D_1 | D_0)[]>[
       {
         _v: 0,
+        _id: new ObjectId(),
         a: genRand(),
         b: genRand()
       },
       {
         _v: 1,
+        _id: new ObjectId(),
         prod: genRand()
       }
     ])
@@ -201,7 +210,7 @@ describe('createSchema', () => {
     } ]
     const Schema = createSchema(revisions)
 
-    const documents = await Schema(collection.find({}).toArray(), persistById(collection))
+    const documents = await Schema(collection.find({}).toArray(), collection)
 
     await expect(collection.find({}).toArray()).resolves.toEqual(documents)
   })
@@ -217,7 +226,7 @@ describe('createSchema', () => {
     await expect(Schema(<any[]>falsyValues)).resolves.toEqual(falsyValues)
   })
 
-  describe('persistEmbeddedDocument', () => {
+  describe('embedded documents', () => {
     interface E_0 extends VersionedDocument {
       _v: 0
       value: number
@@ -228,16 +237,17 @@ describe('createSchema', () => {
       dValue: number
     }
 
-    interface D extends VersionedDocument {
+    interface D extends VersionedBaseDocument {
       readonly _v: 0
-      _id: ObjectId
-      embedded: E | E_0 // testing purposes, normally only E
+      value: number
+      embedded?: E | E_0 // testing purposes, normally only E
     }
 
     it('works with a single base document', async () => {
       const document: D = {
         _v: 0,
         _id: new ObjectId(),
+        value: 0,
         embedded: {
           _v: 0,
           value: Math.random() * 10 + 1
@@ -245,20 +255,29 @@ describe('createSchema', () => {
       }
 
       const update = (document: E_0): E => ({ _v: 1, dValue: document.value * 2 })
-      const EmbeddedSchema = createSchema<E, E_0>([ { update } ])
+      const rawEmbeddedSchema = createSchema<E, E_0>([ { update } ], 'embedded')
+      const EmbeddedSchema = <any>jest.fn().mockImplementation(rawEmbeddedSchema)
+      EmbeddedSchema.schemaVersion = rawEmbeddedSchema.schemaVersion
 
-      const { insertedId } = await collection.insertOne(document)
-      document._id = insertedId
+      const Schema = createSchema<D, D>([], { embedded: EmbeddedSchema })
 
-      document.embedded = await EmbeddedSchema(document.embedded, persistEmbeddedDocument(collection, document, 'embedded'))
+      await collection.insertOne(document)
 
-      await expect(collection.findOne({ _id: insertedId })).resolves.toEqual(document)
+      const updatedDocument = await Schema(collection.findOne({}), collection)
+
+      expect(EmbeddedSchema).toHaveBeenCalledTimes(1)
+      expect(EmbeddedSchema).toHaveBeenCalledWith([ document.embedded ])
+
+      expect(updatedDocument.embedded).toEqual((await EmbeddedSchema.mock.results[0].value)[0])
+
+      await expect(collection.findOne({})).resolves.toEqual(updatedDocument)
     })
 
     it('works with multiple base documents', async () => {
-      let documents: D[] = [ {
+      const documents: D[] = [ {
         _v: 0,
         _id: new ObjectId(),
+        value: 0,
         embedded: {
           _v: 0,
           value: Math.random() * 10 + 1
@@ -266,22 +285,162 @@ describe('createSchema', () => {
       }, {
         _v: 0,
         _id: new ObjectId(),
+        value: 0,
         embedded: {
           _v: 0,
           value: Math.random() * 10 + 1
         }
       } ]
 
+      const { embedded: e0 } = documents[0]
+      const { embedded: e1 } = documents[1]
+
       const update = (document: E_0): E => ({ _v: 1, dValue: document.value * 2 })
-      const EmbeddedSchema = createSchema<E, E_0>([ { update } ])
+      const rawEmbeddedSchema = createSchema<E, E_0>([ { update } ], 'embedded')
+      const EmbeddedSchema = <any>jest.fn().mockImplementation(rawEmbeddedSchema)
+      EmbeddedSchema.schemaVersion = rawEmbeddedSchema.schemaVersion
 
-      const { insertedIds } = await collection.insertMany(documents)
-      documents = documents.map((document: D, index: number) => ({ ...document, _id: insertedIds[index] }))
+      const Schema = createSchema<D, D>([], { embedded: EmbeddedSchema })
 
-      const embeddedDocs = await EmbeddedSchema(documents.map(({ embedded }) => embedded), persistEmbeddedDocument(collection, documents, 'embedded'))
-      documents = documents.map((document: D, index: number) => ({ ...document, embedded: embeddedDocs[index] }))
+      await collection.insertMany(documents)
 
-      await expect(collection.find({ _id: { $in: documents.map(({ _id }) => _id ) } }).toArray()).resolves.toEqual(documents)
+      const updatedDocuments = await Schema(documents, collection)
+
+      expect(EmbeddedSchema).toHaveBeenCalledTimes(1)
+      expect(EmbeddedSchema).toHaveBeenCalledWith([ e0, e1 ]) // documents get mutated
+
+      expect(updatedDocuments).toEqual([
+        expect.objectContaining({ embedded: (await EmbeddedSchema.mock.results[0].value)[0] }),
+        expect.objectContaining({ embedded: (await EmbeddedSchema.mock.results[0].value)[1] })
+      ])
+
+      await expect(collection.find({}).toArray()).resolves.toEqual(updatedDocuments)
+    })
+
+    it('does not overwrite missing embedded documents when passing a collection and deletes removed keys', async () => {
+      const documents: D[] = [ {
+        _v: 0,
+        _id: new ObjectId(),
+        value: 0,
+        embedded: {
+          _v: 0,
+          value: Math.random() * 10 + 1
+        }
+      }, {
+        _v: 0,
+        _id: new ObjectId(),
+        value: 0,
+        embedded: {
+          _v: 0,
+          value: Math.random() * 10 + 1
+        }
+      } ]
+
+      interface D_next extends VersionedBaseDocument {
+        readonly _v: 1
+        _id: ObjectId
+        embedded?: E | E_0
+      }
+
+      const updateEmbedded = (document: E_0): E => ({ _v: 1, dValue: document.value * 2 })
+      const rawEmbeddedSchema = createSchema<E, E_0>([ { update: updateEmbedded } ], 'embedded')
+      const EmbeddedSchema = <any>jest.fn().mockImplementation(rawEmbeddedSchema)
+      EmbeddedSchema.schemaVersion = rawEmbeddedSchema.schemaVersion
+
+      const update = (document: D): D_next => ({ _id: document._id, _v: 1 })
+      const Schema = createSchema<D_next, D>([ { update } ], { embedded: EmbeddedSchema })
+
+      await collection.insertMany(documents)
+
+      const projection: Projection = { embedded: false }
+      const updatedDocuments = await Schema(collection.find({}, { projection }).toArray(), collection, projection)
+
+      expect(EmbeddedSchema).toHaveBeenCalledTimes(0)
+
+      await expect(collection.find({}).toArray()).resolves.toEqual(
+        updatedDocuments.map((document: D_next, index: number): D_next => ({ ...document, embedded: documents[index].embedded }))
+      )
+    })
+
+    it('works when nothing needs to be updated', async () => {
+      const documents: D[] = [ {
+        _v: 0,
+        _id: new ObjectId(),
+        value: 0,
+        embedded: {
+          _v: 1,
+          dValue: Math.random() * 10 + 1
+        }
+      }, {
+        _v: 0,
+        _id: new ObjectId(),
+        value: 0,
+        embedded: {
+          _v: 1,
+          dValue: Math.random() * 10 + 1
+        }
+      } ]
+
+      const update = (document: E_0): E => ({ _v: 1, dValue: document.value * 2 })
+      const rawEmbeddedSchema = createSchema<E, E_0>([ { update } ], 'embedded')
+      const EmbeddedSchema = <any>jest.fn().mockImplementation(rawEmbeddedSchema)
+      EmbeddedSchema.schemaVersion = rawEmbeddedSchema.schemaVersion
+
+      const Schema = createSchema<D, D>([], { embedded: EmbeddedSchema })
+
+      await collection.insertMany(documents)
+
+      const updatedDocuments = await Schema(documents, collection)
+
+      expect(EmbeddedSchema).toHaveBeenCalledTimes(1)
+      expect(EmbeddedSchema).toHaveBeenCalledWith([ documents[0].embedded, documents[1].embedded ])
+
+      expect(updatedDocuments).toEqual([
+        expect.objectContaining({ embedded: (await EmbeddedSchema.mock.results[0].value)[0] }),
+        expect.objectContaining({ embedded: (await EmbeddedSchema.mock.results[0].value)[1] })
+      ])
+
+      await expect(collection.find({}).toArray()).resolves.toEqual(updatedDocuments)
+    })
+
+    it('throws when a whitelist projection is passed', async () => {
+      const documents: D[] = [ {
+        _v: 0,
+        _id: new ObjectId(),
+        value: 0,
+        embedded: {
+          _v: 0,
+          value: Math.random() * 10 + 1
+        }
+      }, {
+        _v: 0,
+        _id: new ObjectId(),
+        value: 0,
+        embedded: {
+          _v: 0,
+          value: Math.random() * 10 + 1
+        }
+      } ]
+
+      interface D_next extends VersionedBaseDocument {
+        readonly _v: 1
+        _id: ObjectId
+        embedded?: E | E_0
+      }
+
+      const updateEmbedded = (document: E_0): E => ({ _v: 1, dValue: document.value * 2 })
+      const rawEmbeddedSchema = createSchema<E, E_0>([ { update: updateEmbedded } ], 'embedded')
+      const EmbeddedSchema = <any>jest.fn().mockImplementation(rawEmbeddedSchema)
+      EmbeddedSchema.schemaVersion = rawEmbeddedSchema.schemaVersion
+
+      const update = (document: D): D_next => ({ _id: document._id, _v: 1 })
+      const Schema = createSchema<D_next, D>([ { update } ], { embedded: EmbeddedSchema })
+
+      await collection.insertMany(documents)
+
+      // @ts-ignore
+      const projection: Projection = { _id: true, _v: true }
+      await expect(Schema(collection.find({}, { projection }).toArray(), collection, projection)).rejects.toThrow()
     })
   })
 })
