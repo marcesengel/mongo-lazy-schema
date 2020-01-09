@@ -43,8 +43,8 @@ export default function transformInput<T extends VersionedEmbeddedDocument, H ex
     }
 
     for (const embeddedDocumentName of projectedEmbeddedDocumentNames) {
-      const embeddedDocument: VersionedEmbeddedDocument = document[embeddedDocumentName]
-      if (!documentWillBeUpdated && embeddedDocument._v < this.embeddedSchemaVersions[embeddedDocumentName]) {
+      const embeddedDocument: VersionedEmbeddedDocument = document && document[embeddedDocumentName]
+      if (embeddedDocument && !documentWillBeUpdated && embeddedDocument._v < this.embeddedSchemaVersions[embeddedDocumentName]) {
         documentWillBeUpdated = true
       }
 
@@ -55,7 +55,7 @@ export default function transformInput<T extends VersionedEmbeddedDocument, H ex
     documentsByVersion[version].metaData.push({
       index: +i,
       willBeUpdated: documentWillBeUpdated,
-      initialFields: this.hasEmbeddedDocuments ? Object.keys(document) : undefined
+      initialFields: this.hasEmbeddedDocuments ? (document && Object.keys(document)) : undefined
     })
   }
 

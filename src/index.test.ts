@@ -10,6 +10,8 @@ declare global {
   }
 }
 
+const falsyValues = [ undefined, null, false ]
+
 describe('createSchema', () => {
   let client: MongoClient
   let db: Db
@@ -216,7 +218,6 @@ describe('createSchema', () => {
   })
 
   it('returns the value, if a falsy value is passed', async () => {
-    const falsyValues = [ undefined, null, false ]
     const Schema = createSchema([])
     
     for (const value of falsyValues) {
@@ -271,6 +272,22 @@ describe('createSchema', () => {
       expect(updatedDocument.embedded).toEqual((await EmbeddedSchema.mock.results[0].value)[0])
 
       await expect(collection.findOne({})).resolves.toEqual(updatedDocument)
+    })
+
+    it('supports falsy values', async () => {
+      const update = (document: E_0): E => ({ _v: 1, dValue: document.value * 2 })
+      const rawEmbeddedSchema = createSchema<E, E_0>([ { update } ], 'embedded')
+      const EmbeddedSchema = <any>jest.fn().mockImplementation(rawEmbeddedSchema)
+      EmbeddedSchema.schemaVersion = rawEmbeddedSchema.schemaVersion
+
+      const Schema = createSchema<D, D>([], { embedded: EmbeddedSchema })
+
+      for (const falsyValue of falsyValues) {
+        await expect(Schema(<any>falsyValue, collection)).resolves.toBe(falsyValue)
+      }
+      await expect(Schema(<any[]>falsyValues, collection)).resolves.toEqual(falsyValues)
+
+      expect(EmbeddedSchema).toHaveBeenCalledTimes(falsyValues.length + 1)
     })
 
     it('works with multiple base documents', async () => {

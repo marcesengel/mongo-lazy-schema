@@ -32,7 +32,7 @@ export default async function updatedDocuments<T extends VersionedDocument, H ex
 
   const { documentsByVersion, embeddedDocuments } = transformInput.call(this, input, projection)
 
-  let updatedEmbeddedDocuments = {}
+  let updatedEmbeddedDocuments = {}  
 
   if (!this.embedded) {
     const updatedEmbeddedDocumentsList = await Promise.all(projectedEmbeddedDocumentNames.map(
@@ -104,6 +104,10 @@ export default async function updatedDocuments<T extends VersionedDocument, H ex
   if (!this.embedded && projectedEmbeddedDocumentNames.length > 0) {
     for (const embeddedDocumentName of projectedEmbeddedDocumentNames) {
       for (const index in result) {
+        if (!result[index]) {
+          continue
+        }
+
         result[index][embeddedDocumentName] = updatedEmbeddedDocuments[embeddedDocumentName][index]
       }
     }
