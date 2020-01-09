@@ -1,5 +1,5 @@
 import { MongoClient, Db, Collection, ObjectId } from 'mongodb'
-import createSchema, { SchemaRevision, VersionedDocument, VersionedBaseDocument, Projection } from './index'
+import createSchema, { SchemaRevision, VersionedEmbeddedDocument, VersionedDocument, Projection } from './index'
 
 declare global {
   namespace NodeJS {
@@ -31,14 +31,14 @@ describe('createSchema', () => {
   })
 
   it('throws an error when a bad version is returned by an updater', async () => {
-    const revisions: SchemaRevision<VersionedBaseDocument>[] = [ { update: (entity) => entity } ]
+    const revisions: SchemaRevision<VersionedDocument>[] = [ { update: (entity) => entity } ]
     const Schema = createSchema(revisions)
 
     await expect(Schema({ _v: 0, _id: new ObjectId() })).rejects.toThrow()
   })
 
   it('chains the update functions by passing them the previous return and the db instance', async () => {
-    const document: VersionedBaseDocument = { _v: 0, _id: new ObjectId() }
+    const document: VersionedDocument = { _v: 0, _id: new ObjectId() }
 
     const revisions = []
     for (let i = 0; i < 2; i++) {
@@ -66,7 +66,7 @@ describe('createSchema', () => {
   })
 
   it('calls the proper update functions according to the current document version', async () => {
-    const document: VersionedBaseDocument = {
+    const document: VersionedDocument = {
       _v: 1,
       _id: new ObjectId()
     }
@@ -89,11 +89,11 @@ describe('createSchema', () => {
   })
   
   it('returns what was returned by the last update()', async () => {
-    interface D_1 extends VersionedBaseDocument {
+    interface D_1 extends VersionedDocument {
       oldProperty: boolean
     }
 
-    interface D extends VersionedBaseDocument {
+    interface D extends VersionedDocument {
       _v: 1
       newProperty: true
     }
@@ -129,7 +129,7 @@ describe('createSchema', () => {
     ]
     const Schema = createSchema(revisions)
 
-    const documents: VersionedBaseDocument[] = [
+    const documents: VersionedDocument[] = [
       { _v: 0, _id: new ObjectId() },
       { _v: 2, _id: new ObjectId() },
       { _v: 1, _id: new ObjectId() },
@@ -170,20 +170,20 @@ describe('createSchema', () => {
   it('can persist updates to multiple documents', async () => {
     const genRand = (): Number => Math.round(Math.random() * 100) + 1
 
-    interface D_0 extends VersionedBaseDocument {
+    interface D_0 extends VersionedDocument {
       _v: 0
       _id: ObjectId
       a: number
       b: number
     }
 
-    interface D_1 extends VersionedBaseDocument {
+    interface D_1 extends VersionedDocument {
       _v: 1
       _id: ObjectId
       prod: number
     }
 
-    interface D extends VersionedBaseDocument {
+    interface D extends VersionedDocument {
       _v: 2
       _id: ObjectId
       negProd: number
@@ -227,17 +227,17 @@ describe('createSchema', () => {
   })
 
   describe('embedded documents', () => {
-    interface E_0 extends VersionedDocument {
+    interface E_0 extends VersionedEmbeddedDocument {
       _v: 0
       value: number
     }
 
-    interface E extends VersionedDocument {
+    interface E extends VersionedEmbeddedDocument {
       _v: 1
       dValue: number
     }
 
-    interface D extends VersionedBaseDocument {
+    interface D extends VersionedDocument {
       readonly _v: 0
       value: number
       embedded?: E | E_0 // testing purposes, normally only E
@@ -336,7 +336,7 @@ describe('createSchema', () => {
         }
       } ]
 
-      interface D_next extends VersionedBaseDocument {
+      interface D_next extends VersionedDocument {
         readonly _v: 1
         _id: ObjectId
         embedded?: E | E_0
@@ -422,7 +422,7 @@ describe('createSchema', () => {
         }
       } ]
 
-      interface D_next extends VersionedBaseDocument {
+      interface D_next extends VersionedDocument {
         readonly _v: 1
         _id: ObjectId
         embedded?: E | E_0

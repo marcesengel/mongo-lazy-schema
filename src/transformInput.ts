@@ -1,4 +1,4 @@
-import { VersionedDocument, DocumentMetaData, SchemaMetaProvider, Projection } from './types'
+import { VersionedEmbeddedDocument, DocumentMetaData, Projection } from './types'
 
 import { Context } from './updateDocuments'
 
@@ -16,7 +16,7 @@ interface TransformedInput<T, H> {
   }
 }
 
-export default function transformInput<T extends VersionedDocument, H extends VersionedDocument> (
+export default function transformInput<T extends VersionedEmbeddedDocument, H extends VersionedEmbeddedDocument> (
   this: Context<T | H>,
   input: (T | H)[],
   projection: Projection
@@ -43,7 +43,7 @@ export default function transformInput<T extends VersionedDocument, H extends Ve
     }
 
     for (const embeddedDocumentName of projectedEmbeddedDocumentNames) {
-      const embeddedDocument: VersionedDocument = document[embeddedDocumentName]
+      const embeddedDocument: VersionedEmbeddedDocument = document[embeddedDocumentName]
       if (!documentWillBeUpdated && embeddedDocument._v < this.embeddedSchemaVersions[embeddedDocumentName]) {
         documentWillBeUpdated = true
       }

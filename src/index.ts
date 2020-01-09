@@ -1,21 +1,21 @@
 import { Collection } from 'mongodb'
 
 import {
-  VersionedBaseDocument, VersionedDocument, SchemaRevision, SchemaEnforcer,
+  VersionedDocument, VersionedEmbeddedDocument, SchemaRevision, SchemaEnforcer,
   EmbeddedSchemaEnforcer, Input, Projection, DocumentMetaData
 } from './types'
 
 import updateDocuments, { Context } from './updateDocuments'
 
-function createSchema<T extends VersionedBaseDocument, H extends VersionedBaseDocument>(
+function createSchema<T extends VersionedDocument, H extends VersionedDocument>(
   revisions: SchemaRevision<T | H>[], embeddedDocumentSchemas?: { [key: string]: SchemaEnforcer<any, any> }
 ): SchemaEnforcer<T, H>
 
-function createSchema<T extends VersionedDocument, H extends VersionedDocument>(
+function createSchema<T extends VersionedEmbeddedDocument, H extends VersionedEmbeddedDocument>(
   revisions: SchemaRevision<T | H>[], embedded: 'embedded'
 ): EmbeddedSchemaEnforcer<T, H>
 
-function createSchema<T extends VersionedBaseDocument, H extends VersionedBaseDocument>(
+function createSchema<T extends VersionedDocument, H extends VersionedDocument>(
   revisions: SchemaRevision<T | H>[], embeddedDocumentSchemas?: 'embedded' | { [key: string]: SchemaEnforcer<any, any> }
 ): SchemaEnforcer<T, H> | EmbeddedSchemaEnforcer<T, H> {
   const schemaVersion = revisions.length
@@ -47,4 +47,4 @@ function createSchema<T extends VersionedBaseDocument, H extends VersionedBaseDo
 
 export default createSchema
 
-export { VersionedBaseDocument, VersionedDocument, SchemaRevision, Projection } from './types'
+export { VersionedDocument, VersionedEmbeddedDocument, SchemaRevision, Projection } from './types'

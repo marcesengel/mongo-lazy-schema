@@ -1,4 +1,4 @@
-import { VersionedBaseDocument, Input, Projection, EmbeddedSchemaEnforcer, SchemaRevision, DocumentMetaData } from './types'
+import { VersionedDocument, Input, Projection, EmbeddedSchemaEnforcer, SchemaRevision, DocumentMetaData } from './types'
 import { Collection } from 'mongodb'
 
 import transformInput from './transformInput'
@@ -13,7 +13,7 @@ export interface Context<T> {
   revisions: SchemaRevision<T>[]
 }
 
-export default async function updatedDocuments<T extends VersionedBaseDocument, H extends VersionedBaseDocument> (
+export default async function updatedDocuments<T extends VersionedDocument, H extends VersionedDocument> (
   this: Context<T | H>, input: Input<T | H>, collection?: Collection, projection: Projection = {}
 ): Promise<any> {
   input = await input

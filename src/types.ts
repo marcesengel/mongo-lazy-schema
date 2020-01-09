@@ -1,10 +1,10 @@
 import { ObjectId, Collection } from 'mongodb'
 
-export interface VersionedDocument {
+export interface VersionedEmbeddedDocument {
   _v: number
 }
 
-export interface VersionedBaseDocument extends VersionedDocument {
+export interface VersionedDocument extends VersionedEmbeddedDocument {
   _id: ObjectId
 }
 

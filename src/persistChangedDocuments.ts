@@ -1,8 +1,8 @@
 import { Context } from './updateDocuments'
-import { VersionedBaseDocument, DocumentMetaData } from './types'
+import { VersionedDocument, DocumentMetaData } from './types'
 import { Collection } from 'mongodb'
 
-export default async function persistChangedDocuments<T extends VersionedBaseDocument> (
+export default async function persistChangedDocuments<T extends VersionedDocument> (
   this: Context<T>,
   documents: T[],
   metaData: DocumentMetaData[],
