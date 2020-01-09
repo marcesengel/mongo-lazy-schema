@@ -1,8 +1,6 @@
-import { Collection } from 'mongodb'
-
 import {
   VersionedDocument, VersionedEmbeddedDocument, SchemaRevision, SchemaEnforcer,
-  EmbeddedSchemaEnforcer, Input, Projection, DocumentMetaData
+  EmbeddedSchemaEnforcer
 } from './types'
 
 import updateDocuments, { Context } from './updateDocuments'
