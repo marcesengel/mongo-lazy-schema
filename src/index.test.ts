@@ -227,6 +227,12 @@ describe('createSchema', () => {
     await expect(Schema(<any[]>falsyValues)).resolves.toEqual(falsyValues)
   })
 
+  it('supports empty arrays', async () => {
+    const Schema = createSchema([])
+
+    await expect(Schema([])).resolves.toEqual([])
+  })
+
   describe('embedded documents', () => {
     interface E_0 extends VersionedEmbeddedDocument {
       _v: 0

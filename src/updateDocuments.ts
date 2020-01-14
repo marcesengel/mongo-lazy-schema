@@ -26,6 +26,10 @@ export default async function updatedDocuments<T extends VersionedDocument, H ex
 
   validateProjection(projection)
 
+  if (input.length === 0) {
+    return []
+  }
+
   const projectedEmbeddedDocumentNames = Object.keys(this.embeddedDocumentSchemas).filter(
     (fieldName) => projection[fieldName] !== false
   )
