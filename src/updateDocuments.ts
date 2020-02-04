@@ -14,7 +14,7 @@ export interface Context<T> {
 }
 
 export default async function updatedDocuments<T extends VersionedDocument, H extends VersionedDocument> (
-  this: Context<T | H>, input: Input<T | H>, collection?: Collection, projection: Projection = {}
+  this: Context<T | H>, input: Input<T | H>, collection?: Collection, projection: Projection<T> = {}
 ): Promise<any> {
   input = await input
 
@@ -128,7 +128,7 @@ export default async function updatedDocuments<T extends VersionedDocument, H ex
   return result
 }
 
-const validateProjection = (projection: Projection): void =>  {
+const validateProjection = (projection: Projection<any>): void =>  {
   for (const key in projection) {
     if (projection[key] !== false) {
       throw new Error('mongo-lazy-schema currently only supports excluding projections.')

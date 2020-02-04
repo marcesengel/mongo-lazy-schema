@@ -375,7 +375,7 @@ describe('createSchema', () => {
 
       await collection.insertMany(documents)
 
-      const projection: Projection = { embedded: false }
+      const projection: Projection<D_next> = { embedded: false }
       const updatedDocuments = await Schema(collection.find({}, { projection }).toArray(), collection, projection)
 
       expect(EmbeddedSchema).toHaveBeenCalledTimes(0)

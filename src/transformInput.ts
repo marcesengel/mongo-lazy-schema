@@ -19,7 +19,7 @@ interface TransformedInput<T, H> {
 export default function transformInput<T extends VersionedEmbeddedDocument, H extends VersionedEmbeddedDocument> (
   this: Context<T | H>,
   input: (T | H)[],
-  projection: Projection
+  projection: Projection<T>
 ): TransformedInput<T, H> {
   const projectedEmbeddedDocumentNames = Object.keys(this.embeddedDocumentSchemas).filter(
     (fieldName) => projection[fieldName] !== false

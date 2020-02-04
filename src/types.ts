@@ -23,10 +23,10 @@ export interface SchemaMetaProvider {
 }
 
 export interface SchemaEnforcer<T, H> extends SchemaMetaProvider {
-  (instance: T | H, collection?: Collection, projection?: Projection): Promise<T>
-  (instances: (T | H)[], collection?: Collection, projection?: Projection): Promise<T[]>
-  (instance: Promise<T | H>, collection?: Collection, projection?: Projection): Promise<T>
-  (instances: Promise<(T | H)[]>, collection?: Collection, projection?: Projection): Promise<T[]>
+  (instance: T | H, collection?: Collection, projection?: Projection<T>): Promise<T>
+  (instances: (T | H)[], collection?: Collection, projection?: Projection<T>): Promise<T[]>
+  (instance: Promise<T | H>, collection?: Collection, projection?: Projection<T>): Promise<T>
+  (instances: Promise<(T | H)[]>, collection?: Collection, projection?: Projection<T>): Promise<T[]>
 }
 
 export interface EmbeddedSchemaEnforcer<T, H> extends SchemaMetaProvider {
@@ -44,6 +44,6 @@ export interface DocumentMetaData {
   initialFields?: string[]
 }
 
-export interface Projection {
-  [key: string]: false
+export type Projection<T> = {
+  [key in keyof T]?: {} extends Pick<T, key> ? false : never
 }
