@@ -18,7 +18,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/DragonRaider5/mongo-lazy-schema.git"
+    "url": "git+https://github.com/marcesengel/mongo-lazy-schema.git"
   },
   "keywords": [
     "mongo",
@@ -33,9 +33,9 @@
   "author": "Marces Engel <mengel@facemurphy.com>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/DragonRaider5/mongo-lazy-schema/issues"
+    "url": "https://github.com/marcesengel/mongo-lazy-schema/issues"
   },
-  "homepage": "https://github.com/DragonRaider5/mongo-lazy-schema#readme",
+  "homepage": "https://github.com/marcesengel/mongo-lazy-schema#readme",
   "devDependencies": {
     "@types/jest": "^24.0.25",
     "@types/mongodb": "^3.3.14",
