@@ -1,6 +1,6 @@
 import { Context } from './updateDocuments'
 import { VersionedDocument, DocumentMetaData } from './types'
-import { Collection } from 'mongodb'
+import { AnyBulkWriteOperation, Collection } from 'mongodb'
 
 export default async function persistChangedDocuments<T extends VersionedDocument> (
   this: Context<T>,
@@ -8,9 +8,9 @@ export default async function persistChangedDocuments<T extends VersionedDocumen
   metaData: DocumentMetaData[],
   collection: Collection
 ) {
-  let bulkWriteOperations: object[]
+  let bulkWriteOperations: AnyBulkWriteOperation[]
   if (this.hasEmbeddedDocuments) {
-    bulkWriteOperations = metaData.reduce<object[]>((operations, { willBeUpdated, initialFields }, index) => {
+    bulkWriteOperations = metaData.reduce<AnyBulkWriteOperation[]>((operations, { willBeUpdated, initialFields }, index) => {
       if (willBeUpdated) {
         const document = documents[index]
         const update: { $set: object, $unset?: object } = {
@@ -43,7 +43,7 @@ export default async function persistChangedDocuments<T extends VersionedDocumen
       return operations
     }, [])
   } else {
-    bulkWriteOperations = metaData.reduce<object[]>((operations, { willBeUpdated }, index) => {
+    bulkWriteOperations = metaData.reduce<AnyBulkWriteOperation[]>((operations, { willBeUpdated }, index) => {
       if (willBeUpdated) {
         operations.push({
           replaceOne: {

@@ -18,7 +18,7 @@ describe('createSchema', () => {
   let collection: Collection
 
   beforeAll(async () => {
-    client = await MongoClient.connect(global.MONGO_URI, { useUnifiedTopology: true })
+    client = await MongoClient.connect(global.MONGO_URI)
     db = client.db(global.MONGO_DB_NAME)
     collection = await db.createCollection('test')
   })
@@ -212,7 +212,7 @@ describe('createSchema', () => {
     } ]
     const Schema = createSchema(revisions)
 
-    const documents = await Schema(collection.find({}).toArray(), collection)
+    const documents = await Schema(collection.find<D | D_1 | D_0>({}).toArray(), collection)
 
     await expect(collection.find({}).toArray()).resolves.toEqual(documents)
   })
@@ -270,7 +270,7 @@ describe('createSchema', () => {
 
       await collection.insertOne(document)
 
-      const updatedDocument = await Schema(collection.findOne({}), collection)
+      const updatedDocument = await Schema(collection.findOne<D>({}), collection)
 
       expect(EmbeddedSchema).toHaveBeenCalledTimes(1)
       expect(EmbeddedSchema).toHaveBeenCalledWith([ document.embedded ])
@@ -376,7 +376,7 @@ describe('createSchema', () => {
       await collection.insertMany(documents)
 
       const projection: Projection<D_next> = { embedded: false }
-      const updatedDocuments = await Schema(collection.find({}, { projection }).toArray(), collection, projection)
+      const updatedDocuments = await Schema(collection.find<D>({}, { projection }).toArray(), collection, projection)
 
       expect(EmbeddedSchema).toHaveBeenCalledTimes(0)
 
@@ -463,7 +463,7 @@ describe('createSchema', () => {
 
       // @ts-ignore
       const projection: Projection = { _id: true, _v: true }
-      await expect(Schema(collection.find({}, { projection }).toArray(), collection, projection)).rejects.toThrow()
+      await expect(Schema(collection.find<D>({}, { projection }).toArray(), collection, projection)).rejects.toThrow()
     })
   })
 })
