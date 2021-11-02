@@ -6,7 +6,7 @@ import {
 import updateDocuments, { Context } from './updateDocuments'
 
 function createSchema<T extends VersionedDocument, H extends VersionedDocument>(
-  revisions: SchemaRevision<T | H>[], embeddedDocumentSchemas?: { [key: string]: SchemaEnforcer<any, any> }
+  revisions: SchemaRevision<T | H>[], embeddedDocumentSchemas?: { [key: string]: EmbeddedSchemaEnforcer<any, any> }
 ): SchemaEnforcer<T, H>
 
 function createSchema<T extends VersionedEmbeddedDocument, H extends VersionedEmbeddedDocument>(
@@ -14,7 +14,7 @@ function createSchema<T extends VersionedEmbeddedDocument, H extends VersionedEm
 ): EmbeddedSchemaEnforcer<T, H>
 
 function createSchema<T extends VersionedDocument, H extends VersionedDocument>(
-  revisions: SchemaRevision<T | H>[], embeddedDocumentSchemas?: 'embedded' | { [key: string]: SchemaEnforcer<any, any> }
+  revisions: SchemaRevision<T | H>[], embeddedDocumentSchemas?: 'embedded' | { [key: string]: EmbeddedSchemaEnforcer<any, any> }
 ): SchemaEnforcer<T, H> | EmbeddedSchemaEnforcer<T, H> {
   const schemaVersion = revisions.length
 
