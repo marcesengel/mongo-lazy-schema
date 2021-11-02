@@ -23,10 +23,14 @@ export interface SchemaMetaProvider {
 }
 
 export interface SchemaEnforcer<T, H> extends SchemaMetaProvider {
+  (instance: null, collection?: Collection, projection?: Projection<T>): Promise<null>
   (instance: T | H, collection?: Collection, projection?: Projection<T>): Promise<T>
   (instances: (T | H)[], collection?: Collection, projection?: Projection<T>): Promise<T[]>
+  (instances: (T | H | null)[], collection?: Collection, projection?: Projection<T>): Promise<(T | null)[]>
+  (instance: Promise<null>, collection?: Collection, projection?: Projection<T>): Promise<null>
   (instance: Promise<T | H>, collection?: Collection, projection?: Projection<T>): Promise<T>
   (instances: Promise<(T | H)[]>, collection?: Collection, projection?: Projection<T>): Promise<T[]>
+  (instances: Promise<(T | H | null)[]>, collection?: Collection, projection?: Projection<T>): Promise<(T | null)[]>
 }
 
 export interface EmbeddedSchemaEnforcer<T, H> extends SchemaMetaProvider {
